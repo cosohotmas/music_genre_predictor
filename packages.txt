@@ -1,5 +1,0 @@
-# Streamlit Cloud / Hugging Face Spaces 시스템 패키지 (apt)
-# Music AI 강의 모듈 D15·D16·D20 배포용
-# 발견 경위: D15 검증 시 librosa→soundfile 의존성에서 libsndfile 시스템 패키지 필요
-libsndfile1
-
