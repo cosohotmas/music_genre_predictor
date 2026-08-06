@@ -46,9 +46,8 @@ ai_music/
 │   │   ├── features_30_sec.csv     # 30초 클립 오디오 피처
 │   │   ├── genres_original/        # GTZAN 원본 WAV (10장르 × 100개)
 │   │   └── images_original/        # 스펙트로그램 이미지
-│   └── latest_music_local/         # 데모용 최신 음악
-└── 강의_AI_Pair/
-    └── 6강_Streamlit_장르예측앱(AI_Pair).ipynb  # 학습 노트북
+    └── latest_music_local/         # 데모용 최신 음악
+
 ```
 
 ## 🎯 지원 장르 (10종)
