@@ -32,23 +32,13 @@ streamlit run app.py
 ```
 ai_music/
 ├── app.py                          # 🎯 Streamlit 메인 앱
-├── app_v2.py                       # 7강 업그레이드 버전 (신뢰도 + 이력 + 멀티파일)
-├── app_preview.py                  # 6강 초안 (데모용)
 ├── model_rf.joblib                 # 학습된 RandomForest 모델
 ├── label_encoder.joblib            # 레이블 인코더 (장르 문자열 ↔ 숫자)
 ├── scaler.joblib                   # StandardScaler (피처 정규화)
 ├── requirements.txt                # Python 의존성
 ├── packages.txt                    # Streamlit Cloud 시스템 패키지
 ├── README.md                       # 이 파일
-├── Data/
-│   ├── Music_genres/
-│   │   ├── features_3_sec.csv      # 3초 클립 오디오 피처 (57개 컬럼)
-│   │   ├── features_30_sec.csv     # 30초 클립 오디오 피처
-│   │   ├── genres_original/        # GTZAN 원본 WAV (10장르 × 100개)
-│   │   └── images_original/        # 스펙트로그램 이미지
-    └── latest_music_local/         # 데모용 최신 음악
 
-```
 
 ## 🎯 지원 장르 (10종)
 
@@ -82,10 +72,10 @@ ai_music/
 
 ## 💡 사용 방법
 
-1. **방법 1**: 왼쪽 드롭다운에서 샘플 파일 선택
-2. **방법 2**: "Browse files" 버튼으로 직접 WAV 파일 업로드
-3. AI가 **Top-3 장르 예측**과 **확률**을 보여줍니다
-4. **멜스펙트로그램** 이미지로 시각화 결과 확인
+
+1. **방법 Browse files" 버튼으로 직접 WAV 파일 업로드
+2. AI가 **Top-3 장르 예측**과 **확률**을 보여줍니다
+3. **멜스펙트로그램** 이미지로 시각화 결과 확인
 
 ## 📝 라이선스
 
@@ -95,7 +85,7 @@ ai_music/
 ## 👨‍🏫 교육 자료
 
 이 앱은 **AI Human 개발자 과정**의 6강 "Streamlit으로 장르 예측 앱 만들기" 실습 결과물입니다.
-- 강사: 김생근 (KDT 부트캠프 / 이스트소프트)
+- 수강생 차백호
 - 학습 노트북: `강의_AI_Pair/6강_Streamlit_장르예측앱(AI_Pair).ipynb`
 
 ---
