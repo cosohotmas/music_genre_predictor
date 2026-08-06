@@ -1,4 +1,4 @@
-# 6강 실습 — Streamlit 장르 예측 앱 (데이터증강版)
+# 6강 실습 — Streamlit 장르 예측 앱
 # 사용법: streamlit run app.py
 # 의존 파일: model_rf.joblib, label_encoder.joblib, scaler.joblib
 
@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import librosa
 import librosa.display
 import joblib
-import tempfile, os, platform, random, glob
+import tempfile, os, platform
 
 # ── 한글 폰트 ──────────────────────────────────────────
 _os = platform.system()
@@ -23,8 +23,8 @@ else:
     matplotlib.rc("font", family="NanumGothic")
 plt.rcParams["axes.unicode_minus"] = False
 
-# ── 피처 컬럼 순서 (데이터증강版: 57개) ──────────────────
-FEATURE_COLS_ENHANCED = (
+# ── 피처 컬럼 순서 (features_3_sec.csv 기준 57개) ──────
+FEATURE_COLS = (
     ["chroma_stft_mean","chroma_stft_var",
      "rms_mean","rms_var",
      "spectral_centroid_mean","spectral_centroid_var",
@@ -51,82 +51,50 @@ GENRE_EMOJI = {
 def load_models():
     """서버 시작 시 1번만 실행 — 이후 모든 요청은 캐시 반환"""
     base = os.path.dirname(os.path.abspath(__file__))
+    # DRIVE_DATA_ROOT = '/content/drive/MyDrive/data/ai_music'
     rf = joblib.load(os.path.join(base, "model_rf.joblib"))
     le = joblib.load(os.path.join(base, "label_encoder.joblib"))
     sc = joblib.load(os.path.join(base, "scaler.joblib"))
     return rf, le, sc
 
-# ── 피처 추출 함수 (데이터증강版: 57개 피처) ─────────────
-def extract_features_enhanced(wav_path: str, n_augment: int = 3) -> np.ndarray:
-    """
-    WAV 파일에서 57개 피처를 추출합니다.
-    데이터 증강: 같은 파일에서 n_augment개의 랜덤 구간을 추출하여 평균
-    """
-    # 전체 오디오 로드
-    y_full, sr = librosa.load(wav_path, sr=22050, mono=True)
-    total_duration = len(y_full) / sr
-    
-    features_list = []
-    
-    for aug_idx in range(n_augment):
-        # 랜덤 구간 선택 (3초)
-        if total_duration > 3.0:
-            start_sample = random.randint(0, int((total_duration - 3.0) * sr))
-            y_audio = y_full[start_sample:start_sample + int(3.0 * sr)]
-        else:
-            y_audio = y_full
-        
-        feats = {}
-        
-        # 기본 피처 (기존 57개)
-        chroma = librosa.feature.chroma_stft(y=y_audio, sr=sr)
-        feats["chroma_stft_mean"] = float(np.mean(chroma))
-        feats["chroma_stft_var"]  = float(np.var(chroma))
-        
-        rms = librosa.feature.rms(y=y_audio)
-        feats["rms_mean"] = float(np.mean(rms))
-        feats["rms_var"]  = float(np.var(rms))
-        
-        sc_f = librosa.feature.spectral_centroid(y=y_audio, sr=sr)
-        feats["spectral_centroid_mean"] = float(np.mean(sc_f))
-        feats["spectral_centroid_var"]  = float(np.var(sc_f))
-        
-        bw = librosa.feature.spectral_bandwidth(y=y_audio, sr=sr)
-        feats["spectral_bandwidth_mean"] = float(np.mean(bw))
-        feats["spectral_bandwidth_var"]  = float(np.var(bw))
-        
-        ro = librosa.feature.spectral_rolloff(y=y_audio, sr=sr)
-        feats["rolloff_mean"] = float(np.mean(ro))
-        feats["rolloff_var"]  = float(np.var(ro))
-        
-        zcr = librosa.feature.zero_crossing_rate(y_audio)
-        feats["zero_crossing_rate_mean"] = float(np.mean(zcr))
-        feats["zero_crossing_rate_var"]  = float(np.var(zcr))
-        
-        harm, perc = librosa.effects.hpss(y_audio)
-        feats["harmony_mean"]  = float(np.mean(harm))
-        feats["harmony_var"]   = float(np.var(harm))
-        feats["perceptr_mean"] = float(np.mean(perc))
-        feats["perceptr_var"]  = float(np.var(perc))
-        
-        tempo, _ = librosa.beat.beat_track(y=y_audio, sr=sr)
-        feats["tempo"] = float(tempo) if np.ndim(tempo) == 0 else float(tempo[0])
-        
-        mfcc = librosa.feature.mfcc(y=y_audio, sr=sr, n_mfcc=20)
-        for i in range(20):
-            feats[f"mfcc{i+1}_mean"] = float(np.mean(mfcc[i]))
-            feats[f"mfcc{i+1}_var"]  = float(np.var(mfcc[i]))
-        
-        # FEATURE_COLS_ENHANCED 순서로 배열 생성
-        vec = np.array([feats[c] for c in FEATURE_COLS_ENHANCED], dtype=np.float32)
-        features_list.append(vec)
-    
-    # 여러 구간의 평균으로 앙상블
-    return np.mean(features_list, axis=0).reshape(1, -1)   # shape (1, 57)
+# ── 피처 추출 함수 ──────────────────────────────────────
+def extract_features(wav_path: str) -> np.ndarray:
+    y_audio, sr = librosa.load(wav_path, sr=22050, mono=True, duration=3.0)
+    feats = {}
+    chroma = librosa.feature.chroma_stft(y=y_audio, sr=sr)
+    feats["chroma_stft_mean"] = float(np.mean(chroma))
+    feats["chroma_stft_var"]  = float(np.var(chroma))
+    rms = librosa.feature.rms(y=y_audio)
+    feats["rms_mean"] = float(np.mean(rms))
+    feats["rms_var"]  = float(np.var(rms))
+    sc_f = librosa.feature.spectral_centroid(y=y_audio, sr=sr)
+    feats["spectral_centroid_mean"] = float(np.mean(sc_f))
+    feats["spectral_centroid_var"]  = float(np.var(sc_f))
+    bw = librosa.feature.spectral_bandwidth(y=y_audio, sr=sr)
+    feats["spectral_bandwidth_mean"] = float(np.mean(bw))
+    feats["spectral_bandwidth_var"]  = float(np.var(bw))
+    ro = librosa.feature.spectral_rolloff(y=y_audio, sr=sr)
+    feats["rolloff_mean"] = float(np.mean(ro))
+    feats["rolloff_var"]  = float(np.var(ro))
+    zcr = librosa.feature.zero_crossing_rate(y_audio)
+    feats["zero_crossing_rate_mean"] = float(np.mean(zcr))
+    feats["zero_crossing_rate_var"]  = float(np.var(zcr))
+    harm, perc = librosa.effects.hpss(y_audio)
+    feats["harmony_mean"]  = float(np.mean(harm))
+    feats["harmony_var"]   = float(np.var(harm))
+    feats["perceptr_mean"] = float(np.mean(perc))
+    feats["perceptr_var"]  = float(np.var(perc))
+    tempo, _ = librosa.beat.beat_track(y=y_audio, sr=sr)
+    feats["tempo"] = float(tempo) if np.ndim(tempo) == 0 else float(tempo[0])
+    mfcc = librosa.feature.mfcc(y=y_audio, sr=sr, n_mfcc=20)
+    for i in range(20):
+        feats[f"mfcc{i+1}_mean"] = float(np.mean(mfcc[i]))
+        feats[f"mfcc{i+1}_var"]  = float(np.var(mfcc[i]))
+    return np.array([feats[c] for c in FEATURE_COLS], dtype=np.float32).reshape(1, -1)
 
 # ── 예측 함수 ───────────────────────────────────────────
 def predict_genre(wav_path, rf, le, sc):
-    vec = extract_features_enhanced(wav_path)  # 데이터증강版: 57개 피처
+    vec = extract_features(wav_path)
     vec_sc = sc.transform(vec)
     proba = rf.predict_proba(vec_sc)[0]
     top3 = np.argsort(proba)[::-1][:3]
@@ -151,13 +119,13 @@ def plot_melspectrogram(wav_path, title=""):
 # Streamlit UI
 # ══════════════════════════════════════════════════════════
 st.set_page_config(
-    page_title="장르 예측기 (데이터증강)",
+    page_title="장르 예측기",
     page_icon="🎵",
     layout="wide",
 )
 
-st.title("🎵 음악 장르 예측기 (데이터증강)")
-st.caption("AI Human 개발자 과정 수강생 차백호 · 6강 실습 — 정확도 90%+ 버전")
+st.title("🎵 음악 장르 예측기")
+st.caption("AI Human 개발자 과정 강사 김생근 · 6강 실습 — WAV 파일을 올리면 장르를 예측합니다")
 
 # ── 사이드바: 지원 장르 목록 ────────────────────────────
 with st.sidebar:
@@ -165,9 +133,8 @@ with st.sidebar:
     for g in GENRES:
         st.write(f"{GENRE_EMOJI.get(g, '')} {g}")
     st.divider()
-    st.caption("모델: RandomForest (데이터증강, 57피처)")
-    st.caption("피처: librosa 57개 (데이터 증강 + 하이퍼파라미터 튜닝)")
-    st.caption("목표 정확도: 90%+")
+    st.caption("모델: RandomForest (6강 재학습, 57피처)")
+    st.caption("피처: librosa 57개")
 
 # ── 모델 로드 ────────────────────────────────────────────
 with st.spinner("모델 로딩 중... (최초 1회)"):
@@ -178,121 +145,93 @@ with st.spinner("모델 로딩 중... (최초 1회)"):
         st.error(f"모델 파일을 찾을 수 없습니다: {e}")
         st.stop()
 
-# ── 샘플 파일 스캔 ───────────────────────────────────────
-SAMPLE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
-                          "Data/Music_genres/genres_original")
-sample_files = sorted(glob.glob(os.path.join(SAMPLE_DIR, "*/*.wav")))
+# ── 파일 업로더 ──────────────────────────────────────────
+uploaded = st.file_uploader(
+    label="WAV 파일을 업로드하세요",
+    type=["wav"],
+    help="3초 이상의 WAV 파일 권장 (MP3 불가 — WAV만)",
+)
 
-# ── 입력 방식 선택 ───────────────────────────────────────
-st.subheader("오디오 파일 선택")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.write("**방법 1: 샘플 파일 선택**")
-    if sample_files:
-        selected_sample = st.selectbox(
-            "샘플 선택",
-            options=sample_files,
-            format_func=lambda x: os.path.basename(x),
-            help="미리 준비된 샘플 파일을 선택하세요"
-        )
-    else:
-        st.warning("샘플 파일이 없습니다")
-        selected_sample = None
-
-with col2:
-    st.write("**방법 2: 직접 업로드**")
-    uploaded = st.file_uploader(
-        label="WAV 파일 업로드",
-        type=["wav"],
-        help="3초 이상의 WAV 파일 권장"
-    )
-
-# ── 파일 결정 ───────────────────────────────────────────
 if uploaded is not None:
-    # 업로드한 파일 사용
+    # 임시 파일에 저장 (librosa는 파일 경로를 요구)
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
         tmp.write(uploaded.read())
         tmp_path = tmp.name
+
+    # 오디오 미리듣기
     st.audio(tmp_path, format="audio/wav")
-elif selected_sample is not None:
-    # 샘플 파일 사용
-    tmp_path = selected_sample
-    st.audio(tmp_path, format="audio/wav")
+
+    # 예측 실행
+    with st.spinner("분석 중..."):
+        try:
+            top3 = predict_genre(tmp_path, rf_m, le_m, sc_m)
+        except Exception as e:
+            st.error(f"예측 실패: {e}")
+            os.unlink(tmp_path)
+            st.stop()
+
+    col1, col2 = st.columns([1, 1])
+
+    # ── col1: 예측 결과 ────────────────────────────────
+    with col1:
+        st.subheader("예측 결과")
+        top_genre, top_prob = top3[0]
+        emoji = GENRE_EMOJI.get(top_genre, "")
+        st.metric(
+            label="1위 장르",
+            value=f"{emoji} {top_genre.upper()}",
+            delta=f"확률 {top_prob:.1%}",
+        )
+
+        # 확률 막대그래프
+        df_prob = pd.DataFrame(top3, columns=["장르", "확률"])
+        fig_bar, ax_bar = plt.subplots(figsize=(5, 2.5))
+        colors_bar = ["#2563EB", "#7C3AED", "#059669"]
+        ax_bar.barh(
+            df_prob["장르"], df_prob["확률"],
+            color=colors_bar, edgecolor="white"
+        )
+        ax_bar.set_xlim(0, 1)
+        ax_bar.set_xlabel("확률")
+        ax_bar.set_title("Top-3 예측")
+        for i, (_, row) in enumerate(df_prob.iterrows()):
+            ax_bar.text(
+                row["확률"] + 0.01,
+                i, f"{row['확률']:.1%}",
+                va="center", fontsize=9
+            )
+        fig_bar.tight_layout()
+        st.pyplot(fig_bar)
+        plt.close(fig_bar)
+
+    # ── col2: 멜스펙트로그램 ───────────────────────────
+    with col2:
+        st.subheader("멜스펙트로그램")
+        fig_mel = plot_melspectrogram(
+            tmp_path,
+            title=f"{uploaded.name}"
+        )
+        st.pyplot(fig_mel)
+        plt.close(fig_mel)
+
+    # ── 풍선 효과: 1위 확률 50% 이상일 때 ─────────────
+    if top_prob >= 0.50:
+        st.balloons()
+        st.success(f"{emoji} {top_genre.upper()} 장르로 자신 있게 예측했습니다!")
+    else:
+        st.warning("확률이 낮습니다 — 다른 장르와 혼용된 곡일 수 있습니다.")
+
+    # 임시 파일 삭제
+    os.unlink(tmp_path)
+
 else:
-    st.info("샘플을 선택하거나 파일을 업로드하세요.")
+    st.info("왼쪽에서 WAV 파일을 업로드하면 장르를 예측합니다.")
+    # 사용 예시 이미지
     st.markdown("""
     ### 사용 방법
-    1. **방법 1**: 왼쪽 드롭다운에서 샘플 파일 선택
-    2. **방법 2**: 오른쪽 Browse files 버튼으로 직접 업로드
-    
+    1. `Browse files` 버튼 클릭
+    2. WAV 파일 선택 (예: `jazz.00000.wav`)
+    3. 자동으로 분석 → 장르 + 멜스펙트로그램 표시
+
     > 팁: `genres_original` 폴더의 샘플 WAV로 먼저 테스트해보세요.
     """)
-    st.stop()
-
-# ── 예측 실행 ───────────────────────────────────────────
-with st.spinner("분석 중..."):
-    try:
-        top3 = predict_genre(tmp_path, rf_m, le_m, sc_m)
-    except Exception as e:
-        st.error(f"예측 실패: {e}")
-        if uploaded is not None:
-            os.unlink(tmp_path)
-        st.stop()
-
-col1, col2 = st.columns([1, 1])
-
-# ── col1: 예측 결과 ────────────────────────────────────
-with col1:
-    st.subheader("예측 결과")
-    top_genre, top_prob = top3[0]
-    emoji = GENRE_EMOJI.get(top_genre, "")
-    st.metric(
-        label="1위 장르",
-        value=f"{emoji} {top_genre.upper()}",
-        delta=f"확률 {top_prob:.1%}",
-    )
-
-    # 확률 막대그래프
-    df_prob = pd.DataFrame(top3, columns=["장르", "확률"])
-    fig_bar, ax_bar = plt.subplots(figsize=(5, 2.5))
-    colors_bar = ["#2563EB", "#7C3AED", "#059669"]
-    ax_bar.barh(
-        df_prob["장르"], df_prob["확률"],
-        color=colors_bar, edgecolor="white"
-    )
-    ax_bar.set_xlim(0, 1)
-    ax_bar.set_xlabel("확률")
-    ax_bar.set_title("Top-3 예측")
-    for i, (_, row) in enumerate(df_prob.iterrows()):
-        ax_bar.text(
-            row["확률"] + 0.01,
-            i, f"{row['확률']:.1%}",
-            va="center", fontsize=9
-        )
-    fig_bar.tight_layout()
-    st.pyplot(fig_bar)
-    plt.close(fig_bar)
-
-# ── col2: 멜스펙트로그램 ───────────────────────────────
-with col2:
-    st.subheader("멜스펙트로그램")
-    title = os.path.basename(tmp_path) if selected_sample else uploaded.name
-    fig_mel = plot_melspectrogram(
-        tmp_path,
-        title=title
-    )
-    st.pyplot(fig_mel)
-    plt.close(fig_mel)
-
-# ── 풍선 효과: 1위 확률 50% 이상일 때 ─────────────────
-if top_prob >= 0.50:
-    st.balloons()
-    st.success(f"{emoji} {top_genre.upper()} 장르로 자신 있게 예측했습니다!")
-else:
-    st.warning("확률이 낮습니다 — 다른 장르와 혼용된 곡일 수 있습니다.")
-
-# 임시 파일 삭제 (업로드한 경우만)
-if uploaded is not None:
-    os.unlink(tmp_path)
