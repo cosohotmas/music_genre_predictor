@@ -125,7 +125,7 @@ st.set_page_config(
 )
 
 st.title("🎵 음악 장르 예측기")
-st.caption("AI Human 개발자 과정 강사 김생근 · 6강 실습 — WAV 파일을 올리면 장르를 예측합니다")
+st.caption("AI Human 개발자 과정 차백호 · 6강 실습 — WAV 파일을 올리면 장르를 예측합니다")
 
 # ── 사이드바: 지원 장르 목록 ────────────────────────────
 with st.sidebar:
